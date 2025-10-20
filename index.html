@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Klik & Belajar: Operasi Tolak</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <style>
+    html { font-size: 20px; }
+    .shadow-card { box-shadow: 0 4px 24px rgba(0,0,0,.08); }
+    .big-btn { min-width:44px; min-height:44px; font-size:1.1em; }
+    .chip, .fruit { cursor:pointer; transition:transform .15s, opacity .15s; }
+    .chip:hover, .fruit:hover { transform:scale(1.06); }
+    .crossed { opacity:.35; text-decoration: line-through; }
+    .dot{ width:12px; height:12px; border-radius:9999px }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col items-center py-4">
+  <!-- Info Bar -->
+  <div class="flex items-center gap-3 w-full max-w-3xl px-6 py-4 mb-4 rounded-xl shadow-card bg-yellow-200 text-gray-900 text-2xl font-bold">
+    <span class="text-3xl">ℹ️</span>
+    <span id="infoText" class="flex-1">Klik mana-mana elemen untuk belajar.</span>
+    <button id="speakBtn" class="big-btn rounded-full bg-yellow-400 hover:bg-yellow-300 focus:outline-none" aria-label="Dengar arahan">🔊</button>
+  </div>
+
+  <!-- Kad Aktiviti -->
+  <div id="activityCard" class="w-full max-w-3xl rounded-2xl shadow-card bg-white p-6 mb-6 min-h-[340px]"></div>
+
+  <!-- Pilih Aktiviti (nama pendek) -->
+  <div class="w-full max-w-3xl flex flex-wrap justify-between items-center gap-2">
+    <div class="flex flex-wrap gap-2 flex-1">
+      <button class="big-btn px-4 py-2 rounded-xl bg-blue-200 hover:bg-blue-300 font-bold transition"  data-activity="0">🧮 Fakta Tolak</button>
+      <button class="big-btn px-4 py-2 rounded-xl bg-green-200 hover:bg-green-300 font-bold transition" data-activity="1">📏 Garis Nombor</button>
+      <button class="big-btn px-4 py-2 rounded-xl bg-purple-200 hover:bg-purple-300 font-bold transition" data-activity="2">📚 Koleksi Fakta</button>
+      <button class="big-btn px-4 py-2 rounded-xl bg-blue-200 hover:bg-blue-300 font-bold transition"  data-activity="3">🎬 Langkah Tolak</button>
+      <button class="big-btn px-4 py-2 rounded-xl bg-pink-200 hover:bg-pink-300 font-bold transition"  data-activity="4">🍎 Warna Buah</button>
+    </div>
+    <button id="clearBtn" class="big-btn px-4 py-2 rounded-xl bg-yellow-300 hover:bg-yellow-400 font-bold transition">Bersih</button>
+    <button id="nextBtn"  class="big-btn px-4 py-2 rounded-xl bg-green-400  hover:bg-green-500  font-bold transition">Seterusnya</button>
+  </div>
+
+  <script>
+    // ====== TTS helper ======
+    let ttsUnlocked=false, ttsUtter=null, ttsTimer=null;
+    function setInfo(text){ document.getElementById('infoText').textContent = text; }
+    function unlockTTS(){ if(!ttsUnlocked){ ttsUnlocked=true; try{ speechSynthesis.cancel(); }catch(e){} } }
+    function speak(text){
+      if(!ttsUnlocked || !('speechSynthesis' in window)) return;
+      if(ttsUtter) speechSynthesis.cancel();
+      ttsUtter = new SpeechSynthesisUtterance(text);
+      ttsUtter.lang = "ms-MY"; ttsUtter.rate=0.9; ttsUtter.pitch=1.05;
+      const vs = speechSynthesis.getVoices();
+      const ms = vs.find(v=>v.lang==="ms-MY") || vs.find(v=>v.lang?.startsWith("ms"));
+      if(ms) ttsUtter.voice = ms;
+      speechSynthesis.speak(ttsUtter);
+      if(ttsTimer) clearInterval(ttsTimer);
+      ttsTimer = setInterval(()=>{ if(speechSynthesis.paused) speechSynthesis.resume(); }, 1000);
+      ttsUtter.onend = ()=> clearInterval(ttsTimer);
+    }
+    document.body.addEventListener('pointerdown', unlockTTS, { once:true });
+    document.getElementById('speakBtn').onclick = ()=> {
+      const a = activities[currentActivity];
+      speak(a?.speak || 'Klik mana-mana elemen untuk belajar.');
+    };
+
+    // ====== Aktiviti ======
+    const activities = [
+      /* 0) Fakta Tolak — klik untuk tanda diambil */
+      {
+        title:"Fakta Tolak",
+        instruction:"Tandakan item yang diambil daripada 16. Paparan menunjukkan tinggal berapa.",
+        speak:"Tandakan yang diambil. Enam belas tolak bilangan yang diambil menunjukkan bilangan yang tinggal.",
+        render:(el)=>{
+          const total=16, ikon='🔵';
+          el.innerHTML = `
+            <div class="text-2xl mb-3 flex items-center gap-2"><span>🧮</span><span>Demonstrasi 16 − n</span></div>
+            <p class="text-gray-600 mb-4">Klik untuk menandakan item "diambil". Ubah bila-bila masa.</p>
+            <div class="flex flex-wrap gap-2 justify-center mb-4">
+              ${Array(total).fill(0).map(()=>`<span class="chip inline-flex items-center justify-center w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 text-2xl">${ikon}</span>`).join('')}
+            </div>
+            <div class="p-4 bg-yellow-50 rounded-xl border border-yellow-200 text-center">
+              <div id="faktaEq" class="text-2xl font-bold text-blue-700">16 − 0 = 16</div>
+              <div id="faktaText" class="text-gray-700 mt-1">Tiada item diambil.</div>
+            </div>`;
+          const chips = el.querySelectorAll('.chip');
+          function update(){
+            const diambil = el.querySelectorAll('.chip.crossed').length;
+            const tinggal  = Math.max(0,16-diambil);
+            el.querySelector('#faktaEq').textContent   = `16 − ${diambil} = ${tinggal}`;
+            el.querySelector('#faktaText').textContent = diambil===0 ? 'Tiada item diambil.' : `${diambil} diambil, tinggal ${tinggal}.`;
+            setInfo(`Enam belas tolak ${diambil} menghasilkan ${tinggal}.`);
+            speak(`Enam belas tolak ${diambil} menghasilkan ${tinggal}.`);
+          }
+          chips.forEach(c=> c.onclick = ()=>{ c.classList.toggle('crossed'); update(); });
+          setInfo("Tandakan item untuk melihat 16 tolak n secara visual.");
+        }
+      },
+      /* 1) Garis Nombor — ke kiri = tolak 1 */
+      {
+        title:"Garis Nombor",
+        instruction:"Pilih nombor mula, kemudian klik nombor di kiri untuk meneruskan tolak satu per langkah.",
+        speak:"Pada garis nombor, setiap langkah ke kiri ialah tolak satu.",
+        render:(el)=>{
+          el.innerHTML = `
+            <div class="text-2xl mb-3 flex items-center gap-2"><span>📏</span><span>Bergerak ke kiri = tolak 1</span></div>
+            <div class="bg-white border rounded-xl p-4">
+              <div class="flex justify-between items-end relative px-2">
+                ${Array.from({length:11},(_,i)=>`
+                  <div class="text-center w-10">
+                    <button class="w-10 h-10 rounded-full bg-green-500 hover:bg-green-600 text-white font-bold" data-n="${i}">${i}</button>
+                    <div class="w-px h-5 bg-gray-400 mx-auto mt-1"></div>
+                  </div>`).join('')}
+              </div>
+            </div>
+            <div class="grid md:grid-cols-2 gap-3 mt-4">
+              <div class="p-4 bg-green-50 rounded-xl border border-green-200">
+                <div id="lineInfo" class="text-lg text-gray-700">Pilih nombor mula.</div>
+              </div>
+              <div class="p-4 bg-yellow-50 rounded-xl border border-yellow-200 text-center">
+                <div id="lineEq" class="text-2xl font-bold text-green-700">—</div>
+                <div id="lineHint" class="text-gray-600 mt-1">Langkah kiri menerangkan pengurangan.</div>
+              </div>
+            </div>`;
+          const S = { start:null, current:null, steps:0 };
+          el.querySelectorAll('[data-n]').forEach(btn=>{
+            btn.onclick = ()=>{
+              const n = +btn.dataset.n;
+              if(S.start===null){
+                S.start=n; S.current=n; S.steps=0;
+                el.querySelector('#lineInfo').textContent = `Mula di ${n}. Klik nombor di kiri untuk mengurangkan.`;
+                el.querySelector('#lineEq').textContent   = `${n} − 0 = ${n}`;
+                setInfo(`Mula di ${n}. Setiap langkah ke kiri ialah tolak 1.`);
+                speak(`Mula di ${n}. Setiap langkah ke kiri ialah tolak satu.`);
+              }else if(n < S.current){
+                const diff = S.current - n;
+                S.steps += diff; S.current = n;
+                const hasil = S.start - S.steps;
+                el.querySelector('#lineEq').textContent   = `${S.start} − ${S.steps} = ${hasil}`;
+                el.querySelector('#lineInfo').textContent = `Bergerak ${diff} langkah ke kiri. Jumlah langkah ${S.steps}.`;
+                setInfo(`${S.start} tolak ${S.steps} menghasilkan ${hasil}.`);
+                speak(`${S.start} tolak ${S.steps} menghasilkan ${hasil}.`);
+              }else{
+                setInfo(`Untuk tolak, teruskan ke kiri dari ${S.current}.`);
+              }
+            };
+          });
+        }
+      },
+      /* 2) Koleksi Fakta — klik kad untuk huraian */
+      {
+        title:"Koleksi Fakta",
+        instruction:"Klik mana-mana kad untuk dengar ayat tolaknya.",
+        speak:"Klik kad untuk mendengar ayat tolak.",
+        render:(el)=>{
+          const fakta=[ {a:10,b:4},{a:8,b:3},{a:7,b:2},{a:9,b:5} ];
+          el.innerHTML = `
+            <div class="text-2xl mb-3 flex items-center gap-2"><span>📚</span><span>Klik kad untuk huraian</span></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              ${fakta.map(f=>`
+                <button class="shadow-card bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 p-4 rounded-xl text-left" data-a="${f.a}" data-b="${f.b}">
+                  <div class="text-xl font-bold text-purple-800 mb-2">${f.a} − ${f.b}</div>
+                  <div class="flex flex-wrap gap-1 mb-1">${Array(f.a).fill(0).map(()=>`<span class="dot inline-block" style="background:#a78bfa"></span>`).join('')}</div>
+                  <div class="text-sm text-purple-700">Klik untuk dengar penerangan.</div>
+                </button>`).join('')}
+            </div>
+            <div id="koleksiPanel" class="mt-4 p-4 bg-yellow-50 rounded-xl border border-yellow-200 text-center text-lg text-gray-700">Pilih satu fakta.</div>`;
+          el.querySelectorAll('[data-a]').forEach(btn=>{
+            btn.onclick = ()=>{
+              const a=+btn.dataset.a, b=+btn.dataset.b, r=a-b;
+              el.querySelector('#koleksiPanel').innerHTML = `
+                <div class="text-2xl font-bold text-purple-800">${a} − ${b} = ${r}</div>
+                <div>Ambil ${b} daripada ${a}, tinggal ${r}.</div>`;
+              setInfo(`${a} tolak ${b} menghasilkan ${r}.`);
+              speak(`${a} tolak ${b} menghasilkan ${r}.`);
+            };
+          });
+        }
+      },
+      /* 3) Langkah Tolak — animasi satu demi satu (ganti Kumpulan Tolak) */
+      {
+        title:"Langkah Tolak",
+        instruction:"Tekan Ambil 1 untuk lihat sebuah kereta pergi. Persamaan dikemas kini setiap langkah.",
+        speak:"Tekan Ambil satu untuk melihat pengurangan satu demi satu.",
+        render:(el)=>{
+          const TOTAL = 10;
+          let pergi = 0;
+          el.innerHTML = `
+            <div class="text-2xl mb-3 flex items-center gap-2"><span>🎬</span><span>Animasi 10 − langkah</span></div>
+            <div class="text-gray-600 mb-3">Setiap tekan <b>Ambil 1</b> mewakili satu kereta pergi (tolak 1).</div>
+            <div class="flex flex-wrap gap-2 justify-center mb-4" id="carRow">
+              ${Array(TOTAL).fill(0).map(()=>`<span class="text-3xl bg-blue-50 rounded-lg px-2 py-1 shadow-card">🚗</span>`).join('')}
+            </div>
+            <div class="flex justify-center gap-3 mb-4">
+              <button id="btnMinus" class="big-btn px-4 py-2 rounded-xl bg-red-300 hover:bg-red-400 font-bold">Ambil 1</button>
+              <button id="btnPlus"  class="big-btn px-4 py-2 rounded-xl bg-green-300 hover:bg-green-400 font-bold">Tambah Balik 1</button>
+              <button id="btnReset" class="big-btn px-4 py-2 rounded-xl bg-gray-300 hover:bg-gray-400 font-bold">Mula Semula</button>
+            </div>
+            <div class="p-4 bg-yellow-50 rounded-xl border border-yellow-200 text-center">
+              <div id="stepEq" class="text-2xl font-bold text-indigo-700">10 − 0 = 10</div>
+              <div id="stepText" class="text-gray-700 mt-1">Tiada kereta pergi, semua masih di sini.</div>
+            </div>`;
+          const row = el.querySelector('#carRow');
+          function refresh(){
+            const tinggal = TOTAL - pergi;
+            el.querySelector('#stepEq').textContent  = `${TOTAL} − ${pergi} = ${tinggal}`;
+            el.querySelector('#stepText').textContent= `${pergi} kereta pergi, tinggal ${tinggal}.`;
+            setInfo(`Sepuluh tolak ${pergi} menghasilkan ${tinggal}.`);
+            speak(`Sepuluh tolak ${pergi} menghasilkan ${tinggal}.`);
+          }
+          el.querySelector('#btnMinus').onclick = ()=>{
+            if(pergi < TOTAL){
+              const car = row.querySelector('span:last-child');
+              if(car){ car.remove(); pergi++; refresh(); }
+            }
+          };
+          el.querySelector('#btnPlus').onclick = ()=>{
+            if(pergi > 0){
+              row.insertAdjacentHTML('beforeend', `<span class="text-3xl bg-blue-50 rounded-lg px-2 py-1 shadow-card">🚗</span>`);
+              pergi--; refresh();
+            }
+          };
+          el.querySelector('#btnReset').onclick = ()=>{
+            pergi = 0;
+            row.innerHTML = Array(TOTAL).fill(0).map(()=>`<span class="text-3xl bg-blue-50 rounded-lg px-2 py-1 shadow-card">🚗</span>`).join('');
+            refresh();
+          };
+          setInfo("Tekan Ambil 1 untuk melihat 10 tolak 1 secara berperingkat.");
+        }
+      },
+      /* 4) Warna Buah — tandakan diambil */
+      {
+        title:"Warna Buah",
+        instruction:"Klik buah untuk tandakan sebagai 'diambil'. Paparan akan menunjukkan 12 − diambil = tinggal.",
+        speak:"Klik buah untuk tandakan sebagai diambil. Dua belas tolak bilangan yang diambil menunjukkan bilangan yang tinggal.",
+        render:(el)=>{
+          const total=12, fruit='🍎';
+          el.innerHTML = `
+            <div class="text-2xl mb-3 flex items-center gap-2"><span>🍎</span><span>12 buah: tandakan yang diambil</span></div>
+            <div class="grid grid-cols-4 gap-3 mb-4">
+              ${Array(total).fill(0).map(()=>`<button class="fruit text-4xl bg-pink-50 border border-pink-200 rounded-xl py-2">${fruit}</button>`).join('')}
+            </div>
+            <div class="p-4 bg-yellow-50 rounded-xl border border-yellow-200 text-center">
+              <div id="fruitEq" class="text-2xl font-bold text-pink-700">12 − 0 = 12</div>
+              <div id="fruitText" class="text-gray-700 mt-1">Tiada buah diambil.</div>
+            </div>`;
+          const btns = el.querySelectorAll('.fruit');
+          function update(){
+            const diambil = el.querySelectorAll('.fruit.crossed').length;
+            const tinggal  = total - diambil;
+            el.querySelector('#fruitEq').textContent   = `12 − ${diambil} = ${tinggal}`;
+            el.querySelector('#fruitText').textContent = diambil===0 ? 'Tiada buah diambil.' : `${diambil} diambil, tinggal ${tinggal}.`;
+            setInfo(`Dua belas tolak ${diambil} menghasilkan ${tinggal}.`);
+            speak(`Dua belas tolak ${diambil} menghasilkan ${tinggal}.`);
+          }
+          btns.forEach(b=> b.onclick = ()=>{ b.classList.toggle('crossed'); update(); });
+          setInfo("Klik buah untuk menandakan yang diambil. Paparan menerangkan 12 tolak diambil sama dengan tinggal.");
+        }
+      }
+    ];
+
+    // ====== State & UI wire-up ======
+    let currentActivity = 0;
+    function renderActivity(idx){
+      const act = activities[idx];
+      const card = document.getElementById('activityCard');
+      card.innerHTML = '';
+      setInfo(act.instruction);
+      act.render(card);
+    }
+    document.querySelectorAll('[data-activity]').forEach(btn=>{
+      btn.onclick = ()=>{ currentActivity = +btn.dataset.activity; renderActivity(currentActivity); };
+    });
+    document.getElementById('clearBtn').onclick = ()=> renderActivity(currentActivity);
+    document.getElementById('nextBtn').onclick  = ()=>{ currentActivity = (currentActivity+1)%activities.length; renderActivity(currentActivity); };
+
+    // Mula
+    renderActivity(currentActivity);
+  </script>
+</body>
+</html>
