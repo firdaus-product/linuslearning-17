@@ -13,13 +13,14 @@
     .chip:hover, .fruit:hover { transform:scale(1.06); }
     .crossed { opacity:.35; text-decoration: line-through; }
     .dot{ width:12px; height:12px; border-radius:9999px }
+    .disabled { opacity:.5; pointer-events:none; }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col items-center py-4">
   <!-- Info Bar -->
   <div class="flex items-center gap-3 w-full max-w-3xl px-6 py-4 mb-4 rounded-xl shadow-card bg-yellow-200 text-gray-900 text-2xl font-bold">
     <span class="text-3xl">ℹ️</span>
-    <span id="infoText" class="flex-1">Klik mana-mana elemen untuk belajar.</span>
+    <span id="infoText" class="flex-1">Pilih satu aktiviti untuk bermula.</span>
     <button id="speakBtn" class="big-btn rounded-full bg-yellow-400 hover:bg-yellow-300 focus:outline-none" aria-label="Dengar arahan">🔊</button>
   </div>
 
@@ -35,8 +36,8 @@
       <button class="big-btn px-4 py-2 rounded-xl bg-blue-200 hover:bg-blue-300 font-bold transition"  data-activity="3">🎬 Langkah Tolak</button>
       <button class="big-btn px-4 py-2 rounded-xl bg-pink-200 hover:bg-pink-300 font-bold transition"  data-activity="4">🍎 Warna Buah</button>
     </div>
-    <button id="clearBtn" class="big-btn px-4 py-2 rounded-xl bg-yellow-300 hover:bg-yellow-400 font-bold transition">Bersih</button>
-    <button id="nextBtn"  class="big-btn px-4 py-2 rounded-xl bg-green-400  hover:bg-green-500  font-bold transition">Seterusnya</button>
+    <button id="clearBtn" class="big-btn px-4 py-2 rounded-xl bg-yellow-300 hover:bg-yellow-400 font-bold transition disabled">Bersih</button>
+    <button id="nextBtn"  class="big-btn px-4 py-2 rounded-xl bg-green-400  hover:bg-green-500  font-bold transition disabled">Seterusnya</button>
   </div>
 
   <script>
@@ -59,9 +60,19 @@
     }
     document.body.addEventListener('pointerdown', unlockTTS, { once:true });
     document.getElementById('speakBtn').onclick = ()=> {
-      const a = activities[currentActivity];
-      speak(a?.speak || 'Klik mana-mana elemen untuk belajar.');
+      const a = activities[currentActivity ?? -1];
+      speak(a?.speak || (document.getElementById('infoText').textContent || 'Pilih satu aktiviti untuk bermula.'));
     };
+
+    // ====== Util butang ======
+    function setActionButtonsEnabled(enabled){
+      const clearBtn = document.getElementById('clearBtn');
+      const nextBtn  = document.getElementById('nextBtn');
+      [clearBtn, nextBtn].forEach(btn=>{
+        btn.classList.toggle('disabled', !enabled);
+        btn.setAttribute('aria-disabled', String(!enabled));
+      });
+    }
 
     // ====== Aktiviti ======
     const activities = [
@@ -176,7 +187,7 @@
           });
         }
       },
-      /* 3) Langkah Tolak — animasi satu demi satu (ganti Kumpulan Tolak) */
+      /* 3) Langkah Tolak — animasi satu demi satu */
       {
         title:"Langkah Tolak",
         instruction:"Tekan Ambil 1 untuk lihat sebuah kereta pergi. Persamaan dikemas kini setiap langkah.",
@@ -259,21 +270,44 @@
     ];
 
     // ====== State & UI wire-up ======
-    let currentActivity = 0;
+    let currentActivity = null; // <- bermula tanpa aktiviti dipilih
+
     function renderActivity(idx){
-      const act = activities[idx];
       const card = document.getElementById('activityCard');
       card.innerHTML = '';
+      if(idx===null || activities[idx]===undefined){
+        // Paparan lalai: minta pilih aktiviti
+        card.innerHTML = `
+          <div class="text-center py-10">
+            <div class="text-4xl mb-3">👋</div>
+            <div class="text-2xl font-bold mb-2">Pilih satu aktiviti untuk bermula</div>
+            <p class="text-gray-600">Gunakan butang di bawah untuk memilih. Anda boleh tukar bila-bila masa.</p>
+          </div>`;
+        setInfo('Pilih satu aktiviti untuk bermula.');
+        setActionButtonsEnabled(false);
+        return;
+      }
+      const act = activities[idx];
       setInfo(act.instruction);
       act.render(card);
+      setActionButtonsEnabled(true);
     }
+
     document.querySelectorAll('[data-activity]').forEach(btn=>{
       btn.onclick = ()=>{ currentActivity = +btn.dataset.activity; renderActivity(currentActivity); };
     });
-    document.getElementById('clearBtn').onclick = ()=> renderActivity(currentActivity);
-    document.getElementById('nextBtn').onclick  = ()=>{ currentActivity = (currentActivity+1)%activities.length; renderActivity(currentActivity); };
 
-    // Mula
+    document.getElementById('clearBtn').onclick = ()=> {
+      if(currentActivity===null) return;
+      renderActivity(currentActivity);
+    };
+    document.getElementById('nextBtn').onclick  = ()=>{
+      if(currentActivity===null){ return; }
+      currentActivity = (currentActivity+1)%activities.length;
+      renderActivity(currentActivity);
+    };
+
+    // Mula — jangan terus buka aktiviti; paparkan prompt pilih dulu
     renderActivity(currentActivity);
   </script>
 </body>
