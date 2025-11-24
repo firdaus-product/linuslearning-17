@@ -1,314 +1,388 @@
 <!DOCTYPE html>
-<html lang="ms">
+<html lang="ms-MY">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Klik & Belajar: Operasi Tolak</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
   <style>
-    html { font-size: 20px; }
-    .shadow-card { box-shadow: 0 4px 24px rgba(0,0,0,.08); }
-    .big-btn { min-width:44px; min-height:44px; font-size:1.1em; }
-    .chip, .fruit { cursor:pointer; transition:transform .15s, opacity .15s; }
-    .chip:hover, .fruit:hover { transform:scale(1.06); }
-    .crossed { opacity:.35; text-decoration: line-through; }
-    .dot{ width:12px; height:12px; border-radius:9999px }
-    .disabled { opacity:.5; pointer-events:none; }
+    /* --- UI STYLE (MASTER REFERENCE - TEMA HIJAU) --- */
+    body { 
+        font-family: 'Fredoka', sans-serif; 
+        background-color: #f0fdf4; 
+        background-image: radial-gradient(#86efac 2px, transparent 2px); 
+        background-size: 30px 30px; 
+    }
+    
+    .game-card { 
+        background: white; 
+        border: 4px solid #475569; 
+        box-shadow: 8px 8px 0px #00000020; 
+        border-radius: 1.5rem; 
+        min-height: 600px; 
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        overflow: hidden; 
+    }
+    
+    /* Buttons */
+    .btn-3d { 
+        transition: all 0.1s; 
+        border-bottom-width: 6px; 
+        border-color: rgba(0,0,0,0.2); 
+        transform: translateY(0); 
+        cursor: pointer; 
+        display: inline-block; 
+    }
+    .btn-3d:active:not(:disabled) { transform: translateY(4px); border-bottom-width: 2px; box-shadow: none; }
+    .btn-3d:disabled { opacity: 0.6; cursor: not-allowed; border-bottom-width: 6px; filter: grayscale(100%); }
+
+    /* Animation */
+    .pop-in { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    @keyframes popIn { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+
+    /* Specific Activity Styles */
+    .chip-btn { 
+        transition: all 0.2s; 
+        box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+    }
+    .chip-btn:hover { transform: scale(1.1); }
+    .chip-btn.crossed { 
+        background-color: #fee2e2; 
+        border-color: #ef4444; 
+        color: #ef4444; 
+        opacity: 0.6; 
+        box-shadow: none;
+        transform: scale(0.95);
+    }
+    .chip-btn.crossed::after {
+        content: '✕';
+        position: absolute;
+        font-size: 2rem;
+        font-weight: bold;
+    }
+
+    /* Number Line */
+    .num-btn { transition: all 0.2s; }
+    .num-btn.active { background-color: #22c55e; color: white; transform: scale(1.2); border-color: #15803d; }
   </style>
 </head>
-<body class="bg-gray-50 min-h-screen flex flex-col items-center py-4">
-  <!-- Info Bar -->
-  <div class="flex items-center gap-3 w-full max-w-3xl px-6 py-4 mb-4 rounded-xl shadow-card bg-yellow-200 text-gray-900 text-2xl font-bold">
-    <span class="text-3xl">ℹ️</span>
-    <span id="infoText" class="flex-1">Pilih satu aktiviti untuk bermula.</span>
-    <button id="speakBtn" class="big-btn rounded-full bg-yellow-400 hover:bg-yellow-300 focus:outline-none" aria-label="Dengar arahan">🔊</button>
-  </div>
+<body class="min-h-screen text-slate-800 pb-10">
 
-  <!-- Kad Aktiviti -->
-  <div id="activityCard" class="w-full max-w-3xl rounded-2xl shadow-card bg-white p-6 mb-6 min-h-[340px]"></div>
-
-  <!-- Pilih Aktiviti (nama pendek) -->
-  <div class="w-full max-w-3xl flex flex-wrap justify-between items-center gap-2">
-    <div class="flex flex-wrap gap-2 flex-1">
-      <button class="big-btn px-4 py-2 rounded-xl bg-blue-200 hover:bg-blue-300 font-bold transition"  data-activity="0">🧮 Fakta Tolak</button>
-      <button class="big-btn px-4 py-2 rounded-xl bg-green-200 hover:bg-green-300 font-bold transition" data-activity="1">📏 Garis Nombor</button>
-      <button class="big-btn px-4 py-2 rounded-xl bg-purple-200 hover:bg-purple-300 font-bold transition" data-activity="2">📚 Koleksi Fakta</button>
-      <button class="big-btn px-4 py-2 rounded-xl bg-blue-200 hover:bg-blue-300 font-bold transition"  data-activity="3">🎬 Langkah Tolak</button>
-      <button class="big-btn px-4 py-2 rounded-xl bg-pink-200 hover:bg-pink-300 font-bold transition"  data-activity="4">🍎 Warna Buah</button>
+  <div class="fixed top-4 left-0 right-0 z-50 px-4 pointer-events-none">
+    <div class="max-w-4xl mx-auto bg-green-400 border-4 border-green-600 rounded-full px-6 py-3 shadow-xl flex items-center justify-between pointer-events-auto transform hover:scale-[1.01] transition-transform">
+      <div class="flex items-center gap-3">
+        <span class="text-3xl animate-bounce">➖</span>
+        <span id="info-text" class="text-xl font-bold text-green-900 leading-none mt-1">Belajar Tolak</span>
+      </div>
+      <button id="speak-btn" onclick="speakInfo()" class="bg-white hover:bg-green-50 text-green-600 border-2 border-green-200 rounded-full p-2 transition-colors shadow-sm">🔊</button>
     </div>
-    <button id="clearBtn" class="big-btn px-4 py-2 rounded-xl bg-yellow-300 hover:bg-yellow-400 font-bold transition disabled">Bersih</button>
-    <button id="nextBtn"  class="big-btn px-4 py-2 rounded-xl bg-green-400  hover:bg-green-500  font-bold transition disabled">Seterusnya</button>
+  </div>
+  <div class="h-24"></div>
+
+  <div class="max-w-6xl mx-auto p-4">
+    
+    <div class="game-card p-8 mb-8">
+        <div id="activity-content" class="w-full relative z-10 flex flex-col items-center justify-center h-full transition-opacity duration-200">
+            <div class="py-10 text-center">
+                <div class="text-8xl mb-6 animate-pulse">📉</div>
+                <h2 class="text-5xl font-bold text-emerald-600 mb-4">Operasi Tolak</h2>
+                <p class="text-2xl text-slate-500 mb-8 font-semibold">Pilih aktiviti di bawah untuk bermula.</p>
+                <div class="text-4xl animate-bounce">👇</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white/80 backdrop-blur-sm rounded-3xl shadow-lg p-6 border-2 border-white">
+      <h3 class="text-2xl font-bold text-slate-700 mb-4 text-center">🎮 Pilih Aktiviti</h3>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+        <button onclick="loadActivity(1)" class="btn-3d bg-blue-500 text-white font-bold py-4 px-2 rounded-xl text-lg">🧮 Fakta Tolak</button>
+        <button onclick="loadActivity(2)" class="btn-3d bg-green-500 text-white font-bold py-4 px-2 rounded-xl text-lg">📏 Garis Nombor</button>
+        <button onclick="loadActivity(3)" class="btn-3d bg-purple-500 text-white font-bold py-4 px-2 rounded-xl text-lg">📚 Koleksi Fakta</button>
+        <button onclick="loadActivity(4)" class="btn-3d bg-orange-500 text-white font-bold py-4 px-2 rounded-xl text-lg">🎬 Langkah Tolak</button>
+        <button onclick="loadActivity(5)" class="btn-3d bg-pink-500 text-white font-bold py-4 px-2 rounded-xl text-lg">🍎 Warna Buah</button>
+      </div>
+
+      <div class="flex justify-center gap-4 border-t-2 border-slate-100 pt-6">
+        <button onclick="clearActivity()" class="btn-3d bg-slate-400 text-white font-bold py-2 px-6 rounded-full text-lg">🏠 Menu</button>
+        <button onclick="nextActivity()" class="btn-3d bg-indigo-500 text-white font-bold py-2 px-8 rounded-full text-xl">Seterusnya ➡️</button>
+      </div>
+    </div>
   </div>
 
   <script>
-    // ====== TTS helper ======
-    let ttsUnlocked=false, ttsUtter=null, ttsTimer=null;
-    function setInfo(text){ document.getElementById('infoText').textContent = text; }
-    function unlockTTS(){ if(!ttsUnlocked){ ttsUnlocked=true; try{ speechSynthesis.cancel(); }catch(e){} } }
-    function speak(text){
-      if(!ttsUnlocked || !('speechSynthesis' in window)) return;
-      if(ttsUtter) speechSynthesis.cancel();
-      ttsUtter = new SpeechSynthesisUtterance(text);
-      ttsUtter.lang = "ms-MY"; ttsUtter.rate=0.9; ttsUtter.pitch=1.05;
-      const vs = speechSynthesis.getVoices();
-      const ms = vs.find(v=>v.lang==="ms-MY") || vs.find(v=>v.lang?.startsWith("ms"));
-      if(ms) ttsUtter.voice = ms;
-      speechSynthesis.speak(ttsUtter);
-      if(ttsTimer) clearInterval(ttsTimer);
-      ttsTimer = setInterval(()=>{ if(speechSynthesis.paused) speechSynthesis.resume(); }, 1000);
-      ttsUtter.onend = ()=> clearInterval(ttsTimer);
+    /* --- STANDARD HELPERS --- */
+    let currentActivity = 0;
+    let ttsEnabled = false;
+    let currentInfo = "Pilih aktiviti untuk bermula!";
+    
+    function speak(text) { 
+        if (!ttsEnabled || !('speechSynthesis' in window)) return; 
+        window.speechSynthesis.cancel(); 
+        const u = new SpeechSynthesisUtterance(text); u.lang = 'ms-MY'; u.rate = 0.95; u.pitch = 1.05; 
+        const ms = window.speechSynthesis.getVoices().find(v => v.lang === 'ms-MY' || v.lang?.startsWith('ms')); 
+        if (ms) u.voice = ms; 
+        window.speechSynthesis.speak(u); 
     }
-    document.body.addEventListener('pointerdown', unlockTTS, { once:true });
-    document.getElementById('speakBtn').onclick = ()=> {
-      const a = activities[currentActivity ?? -1];
-      speak(a?.speak || (document.getElementById('infoText').textContent || 'Pilih satu aktiviti untuk bermula.'));
-    };
-
-    // ====== Util butang ======
-    function setActionButtonsEnabled(enabled){
-      const clearBtn = document.getElementById('clearBtn');
-      const nextBtn  = document.getElementById('nextBtn');
-      [clearBtn, nextBtn].forEach(btn=>{
-        btn.classList.toggle('disabled', !enabled);
-        btn.setAttribute('aria-disabled', String(!enabled));
-      });
+    
+    function setInfo(text) { 
+        currentInfo = text; const infoEl = document.getElementById('info-text'); 
+        infoEl.style.opacity = 0; setTimeout(() => { infoEl.textContent = text; infoEl.style.opacity = 1; }, 200); 
+    }
+    
+    function speakInfo() { 
+        if (!ttsEnabled) { ttsEnabled = true; document.getElementById('speak-btn').classList.add('bg-green-100', 'text-green-600'); } 
+        speak(currentInfo); 
     }
 
-    // ====== Aktiviti ======
-    const activities = [
-      /* 0) Fakta Tolak — klik untuk tanda diambil */
-      {
-        title:"Fakta Tolak",
-        instruction:"Tandakan item yang diambil daripada 16. Paparan menunjukkan tinggal berapa.",
-        speak:"Tandakan yang diambil. Enam belas tolak bilangan yang diambil menunjukkan bilangan yang tinggal.",
-        render:(el)=>{
-          const total=16, ikon='🔵';
-          el.innerHTML = `
-            <div class="text-2xl mb-3 flex items-center gap-2"><span>🧮</span><span>Demonstrasi 16 − n</span></div>
-            <p class="text-gray-600 mb-4">Klik untuk menandakan item "diambil". Ubah bila-bila masa.</p>
-            <div class="flex flex-wrap gap-2 justify-center mb-4">
-              ${Array(total).fill(0).map(()=>`<span class="chip inline-flex items-center justify-center w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 text-2xl">${ikon}</span>`).join('')}
-            </div>
-            <div class="p-4 bg-yellow-50 rounded-xl border border-yellow-200 text-center">
-              <div id="faktaEq" class="text-2xl font-bold text-blue-700">16 − 0 = 16</div>
-              <div id="faktaText" class="text-gray-700 mt-1">Tiada item diambil.</div>
-            </div>`;
-          const chips = el.querySelectorAll('.chip');
-          function update(){
-            const diambil = el.querySelectorAll('.chip.crossed').length;
-            const tinggal  = Math.max(0,16-diambil);
-            el.querySelector('#faktaEq').textContent   = `16 − ${diambil} = ${tinggal}`;
-            el.querySelector('#faktaText').textContent = diambil===0 ? 'Tiada item diambil.' : `${diambil} diambil, tinggal ${tinggal}.`;
-            setInfo(`Enam belas tolak ${diambil} menghasilkan ${tinggal}.`);
-            speak(`Enam belas tolak ${diambil} menghasilkan ${tinggal}.`);
-          }
-          chips.forEach(c=> c.onclick = ()=>{ c.classList.toggle('crossed'); update(); });
-          setInfo("Tandakan item untuk melihat 16 tolak n secara visual.");
-        }
-      },
-      /* 1) Garis Nombor — ke kiri = tolak 1 */
-      {
-        title:"Garis Nombor",
-        instruction:"Pilih nombor mula, kemudian klik nombor di kiri untuk meneruskan tolak satu per langkah.",
-        speak:"Pada garis nombor, setiap langkah ke kiri ialah tolak satu.",
-        render:(el)=>{
-          el.innerHTML = `
-            <div class="text-2xl mb-3 flex items-center gap-2"><span>📏</span><span>Bergerak ke kiri = tolak 1</span></div>
-            <div class="bg-white border rounded-xl p-4">
-              <div class="flex justify-between items-end relative px-2">
-                ${Array.from({length:11},(_,i)=>`
-                  <div class="text-center w-10">
-                    <button class="w-10 h-10 rounded-full bg-green-500 hover:bg-green-600 text-white font-bold" data-n="${i}">${i}</button>
-                    <div class="w-px h-5 bg-gray-400 mx-auto mt-1"></div>
-                  </div>`).join('')}
-              </div>
-            </div>
-            <div class="grid md:grid-cols-2 gap-3 mt-4">
-              <div class="p-4 bg-green-50 rounded-xl border border-green-200">
-                <div id="lineInfo" class="text-lg text-gray-700">Pilih nombor mula.</div>
-              </div>
-              <div class="p-4 bg-yellow-50 rounded-xl border border-yellow-200 text-center">
-                <div id="lineEq" class="text-2xl font-bold text-green-700">—</div>
-                <div id="lineHint" class="text-gray-600 mt-1">Langkah kiri menerangkan pengurangan.</div>
-              </div>
-            </div>`;
-          const S = { start:null, current:null, steps:0 };
-          el.querySelectorAll('[data-n]').forEach(btn=>{
-            btn.onclick = ()=>{
-              const n = +btn.dataset.n;
-              if(S.start===null){
-                S.start=n; S.current=n; S.steps=0;
-                el.querySelector('#lineInfo').textContent = `Mula di ${n}. Klik nombor di kiri untuk mengurangkan.`;
-                el.querySelector('#lineEq').textContent   = `${n} − 0 = ${n}`;
-                setInfo(`Mula di ${n}. Setiap langkah ke kiri ialah tolak 1.`);
-                speak(`Mula di ${n}. Setiap langkah ke kiri ialah tolak satu.`);
-              }else if(n < S.current){
-                const diff = S.current - n;
-                S.steps += diff; S.current = n;
-                const hasil = S.start - S.steps;
-                el.querySelector('#lineEq').textContent   = `${S.start} − ${S.steps} = ${hasil}`;
-                el.querySelector('#lineInfo').textContent = `Bergerak ${diff} langkah ke kiri. Jumlah langkah ${S.steps}.`;
-                setInfo(`${S.start} tolak ${S.steps} menghasilkan ${hasil}.`);
-                speak(`${S.start} tolak ${S.steps} menghasilkan ${hasil}.`);
-              }else{
-                setInfo(`Untuk tolak, teruskan ke kiri dari ${S.current}.`);
-              }
-            };
-          });
-        }
-      },
-      /* 2) Koleksi Fakta — klik kad untuk huraian */
-      {
-        title:"Koleksi Fakta",
-        instruction:"Klik mana-mana kad untuk dengar ayat tolaknya.",
-        speak:"Klik kad untuk mendengar ayat tolak.",
-        render:(el)=>{
-          const fakta=[ {a:10,b:4},{a:8,b:3},{a:7,b:2},{a:9,b:5} ];
-          el.innerHTML = `
-            <div class="text-2xl mb-3 flex items-center gap-2"><span>📚</span><span>Klik kad untuk huraian</span></div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              ${fakta.map(f=>`
-                <button class="shadow-card bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 p-4 rounded-xl text-left" data-a="${f.a}" data-b="${f.b}">
-                  <div class="text-xl font-bold text-purple-800 mb-2">${f.a} − ${f.b}</div>
-                  <div class="flex flex-wrap gap-1 mb-1">${Array(f.a).fill(0).map(()=>`<span class="dot inline-block" style="background:#a78bfa"></span>`).join('')}</div>
-                  <div class="text-sm text-purple-700">Klik untuk dengar penerangan.</div>
-                </button>`).join('')}
-            </div>
-            <div id="koleksiPanel" class="mt-4 p-4 bg-yellow-50 rounded-xl border border-yellow-200 text-center text-lg text-gray-700">Pilih satu fakta.</div>`;
-          el.querySelectorAll('[data-a]').forEach(btn=>{
-            btn.onclick = ()=>{
-              const a=+btn.dataset.a, b=+btn.dataset.b, r=a-b;
-              el.querySelector('#koleksiPanel').innerHTML = `
-                <div class="text-2xl font-bold text-purple-800">${a} − ${b} = ${r}</div>
-                <div>Ambil ${b} daripada ${a}, tinggal ${r}.</div>`;
-              setInfo(`${a} tolak ${b} menghasilkan ${r}.`);
-              speak(`${a} tolak ${b} menghasilkan ${r}.`);
-            };
-          });
-        }
-      },
-      /* 3) Langkah Tolak — animasi satu demi satu */
-      {
-        title:"Langkah Tolak",
-        instruction:"Tekan Ambil 1 untuk lihat sebuah kereta pergi. Persamaan dikemas kini setiap langkah.",
-        speak:"Tekan Ambil satu untuk melihat pengurangan satu demi satu.",
-        render:(el)=>{
-          const TOTAL = 10;
-          let pergi = 0;
-          el.innerHTML = `
-            <div class="text-2xl mb-3 flex items-center gap-2"><span>🎬</span><span>Animasi 10 − langkah</span></div>
-            <div class="text-gray-600 mb-3">Setiap tekan <b>Ambil 1</b> mewakili satu kereta pergi (tolak 1).</div>
-            <div class="flex flex-wrap gap-2 justify-center mb-4" id="carRow">
-              ${Array(TOTAL).fill(0).map(()=>`<span class="text-3xl bg-blue-50 rounded-lg px-2 py-1 shadow-card">🚗</span>`).join('')}
-            </div>
-            <div class="flex justify-center gap-3 mb-4">
-              <button id="btnMinus" class="big-btn px-4 py-2 rounded-xl bg-red-300 hover:bg-red-400 font-bold">Ambil 1</button>
-              <button id="btnPlus"  class="big-btn px-4 py-2 rounded-xl bg-green-300 hover:bg-green-400 font-bold">Tambah Balik 1</button>
-              <button id="btnReset" class="big-btn px-4 py-2 rounded-xl bg-gray-300 hover:bg-gray-400 font-bold">Mula Semula</button>
-            </div>
-            <div class="p-4 bg-yellow-50 rounded-xl border border-yellow-200 text-center">
-              <div id="stepEq" class="text-2xl font-bold text-indigo-700">10 − 0 = 10</div>
-              <div id="stepText" class="text-gray-700 mt-1">Tiada kereta pergi, semua masih di sini.</div>
-            </div>`;
-          const row = el.querySelector('#carRow');
-          function refresh(){
-            const tinggal = TOTAL - pergi;
-            el.querySelector('#stepEq').textContent  = `${TOTAL} − ${pergi} = ${tinggal}`;
-            el.querySelector('#stepText').textContent= `${pergi} kereta pergi, tinggal ${tinggal}.`;
-            setInfo(`Sepuluh tolak ${pergi} menghasilkan ${tinggal}.`);
-            speak(`Sepuluh tolak ${pergi} menghasilkan ${tinggal}.`);
-          }
-          el.querySelector('#btnMinus').onclick = ()=>{
-            if(pergi < TOTAL){
-              const car = row.querySelector('span:last-child');
-              if(car){ car.remove(); pergi++; refresh(); }
-            }
-          };
-          el.querySelector('#btnPlus').onclick = ()=>{
-            if(pergi > 0){
-              row.insertAdjacentHTML('beforeend', `<span class="text-3xl bg-blue-50 rounded-lg px-2 py-1 shadow-card">🚗</span>`);
-              pergi--; refresh();
-            }
-          };
-          el.querySelector('#btnReset').onclick = ()=>{
-            pergi = 0;
-            row.innerHTML = Array(TOTAL).fill(0).map(()=>`<span class="text-3xl bg-blue-50 rounded-lg px-2 py-1 shadow-card">🚗</span>`).join('');
-            refresh();
-          };
-          setInfo("Tekan Ambil 1 untuk melihat 10 tolak 1 secara berperingkat.");
-        }
-      },
-      /* 4) Warna Buah — tandakan diambil */
-      {
-        title:"Warna Buah",
-        instruction:"Klik buah untuk tandakan sebagai 'diambil'. Paparan akan menunjukkan 12 − diambil = tinggal.",
-        speak:"Klik buah untuk tandakan sebagai diambil. Dua belas tolak bilangan yang diambil menunjukkan bilangan yang tinggal.",
-        render:(el)=>{
-          const total=12, fruit='🍎';
-          el.innerHTML = `
-            <div class="text-2xl mb-3 flex items-center gap-2"><span>🍎</span><span>12 buah: tandakan yang diambil</span></div>
-            <div class="grid grid-cols-4 gap-3 mb-4">
-              ${Array(total).fill(0).map(()=>`<button class="fruit text-4xl bg-pink-50 border border-pink-200 rounded-xl py-2">${fruit}</button>`).join('')}
-            </div>
-            <div class="p-4 bg-yellow-50 rounded-xl border border-yellow-200 text-center">
-              <div id="fruitEq" class="text-2xl font-bold text-pink-700">12 − 0 = 12</div>
-              <div id="fruitText" class="text-gray-700 mt-1">Tiada buah diambil.</div>
-            </div>`;
-          const btns = el.querySelectorAll('.fruit');
-          function update(){
-            const diambil = el.querySelectorAll('.fruit.crossed').length;
-            const tinggal  = total - diambil;
-            el.querySelector('#fruitEq').textContent   = `12 − ${diambil} = ${tinggal}`;
-            el.querySelector('#fruitText').textContent = diambil===0 ? 'Tiada buah diambil.' : `${diambil} diambil, tinggal ${tinggal}.`;
-            setInfo(`Dua belas tolak ${diambil} menghasilkan ${tinggal}.`);
-            speak(`Dua belas tolak ${diambil} menghasilkan ${tinggal}.`);
-          }
-          btns.forEach(b=> b.onclick = ()=>{ b.classList.toggle('crossed'); update(); });
-          setInfo("Klik buah untuk menandakan yang diambil. Paparan menerangkan 12 tolak diambil sama dengan tinggal.");
-        }
-      }
-    ];
+    function triggerWin() { confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } }); }
 
-    // ====== State & UI wire-up ======
-    let currentActivity = null; // <- bermula tanpa aktiviti dipilih
-
-    function renderActivity(idx){
-      const card = document.getElementById('activityCard');
-      card.innerHTML = '';
-      if(idx===null || activities[idx]===undefined){
-        // Paparan lalai: minta pilih aktiviti
-        card.innerHTML = `
-          <div class="text-center py-10">
-            <div class="text-4xl mb-3">👋</div>
-            <div class="text-2xl font-bold mb-2">Pilih satu aktiviti untuk bermula</div>
-            <p class="text-gray-600">Gunakan butang di bawah untuk memilih. Anda boleh tukar bila-bila masa.</p>
-          </div>`;
-        setInfo('Pilih satu aktiviti untuk bermula.');
-        setActionButtonsEnabled(false);
-        return;
-      }
-      const act = activities[idx];
-      setInfo(act.instruction);
-      act.render(card);
-      setActionButtonsEnabled(true);
+    /* --- ROUTER --- */
+    function loadActivity(n) {
+      currentActivity = n;
+      const content = document.getElementById('activity-content');
+      content.style.opacity = 0;
+      setTimeout(() => {
+          if (n === 1) setupAct1(content);
+          else if (n === 2) setupAct2(content);
+          else if (n === 3) setupAct3(content);
+          else if (n === 4) setupAct4(content);
+          else if (n === 5) setupAct5(content);
+          content.style.opacity = 1; 
+      }, 200);
     }
 
-    document.querySelectorAll('[data-activity]').forEach(btn=>{
-      btn.onclick = ()=>{ currentActivity = +btn.dataset.activity; renderActivity(currentActivity); };
-    });
+    function clearActivity() {
+        currentActivity = 0;
+        document.getElementById('activity-content').innerHTML = `<div class="py-10 text-center"><div class="text-8xl mb-6 animate-pulse">📉</div><h2 class="text-5xl font-bold text-emerald-600 mb-4">Operasi Tolak</h2><p class="text-2xl text-slate-500 mb-8 font-semibold">Pilih butang di bawah.</p></div>`;
+        setInfo("Pilih aktiviti di bawah.");
+    }
+    function nextActivity() { let next = currentActivity + 1; if (next > 5) next = 1; loadActivity(next); }
 
-    document.getElementById('clearBtn').onclick = ()=> {
-      if(currentActivity===null) return;
-      renderActivity(currentActivity);
-    };
-    document.getElementById('nextBtn').onclick  = ()=>{
-      if(currentActivity===null){ return; }
-      currentActivity = (currentActivity+1)%activities.length;
-      renderActivity(currentActivity);
-    };
 
-    // Mula — jangan terus buka aktiviti; paparkan prompt pilih dulu
-    renderActivity(currentActivity);
+    /* =========================================
+       LOGIK AKTIVITI
+       ========================================= */
+
+    /* --- 1. Fakta Tolak (Chips) --- */
+    function setupAct1(content) {
+        setInfo("Klik cip untuk tanda 'diambil'.");
+        const total = 16;
+        
+        content.innerHTML = `
+            <div class="w-full max-w-4xl text-center">
+                <h3 class="text-3xl font-bold text-blue-600 mb-6">🧮 Fakta Tolak (Visual)</h3>
+                <p class="mb-6 text-slate-500">Klik cip biru untuk membuangnya.</p>
+                
+                <div class="flex flex-wrap justify-center gap-3 mb-8 max-w-2xl mx-auto">
+                    ${Array(total).fill(0).map((_,i) => `
+                        <button onclick="toggleChip(this)" class="chip-btn w-16 h-16 rounded-xl bg-blue-100 border-2 border-blue-300 text-4xl flex items-center justify-center">🔵</button>
+                    `).join('')}
+                </div>
+                
+                <div class="bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-6 inline-block min-w-[300px]">
+                    <div id="ft-eq" class="text-4xl font-black text-blue-800 mb-2">16 − 0 = 16</div>
+                    <div id="ft-text" class="text-slate-600">Tiada diambil.</div>
+                </div>
+            </div>
+        `;
+    }
+    window.toggleChip = function(btn) {
+        btn.classList.toggle('crossed');
+        const crossed = document.querySelectorAll('.chip-btn.crossed').length;
+        const left = 16 - crossed;
+        
+        document.getElementById('ft-eq').innerText = `16 − ${crossed} = ${left}`;
+        document.getElementById('ft-text').innerText = `${crossed} diambil, tinggal ${left}.`;
+        
+        const msg = `Enam belas tolak ${crossed} sama dengan ${left}.`;
+        setInfo(msg); speak(msg);
+    }
+
+    /* --- 2. Garis Nombor --- */
+    let gnState = { start: null, current: null, steps: 0 };
+    function setupAct2(content) {
+        setInfo("Pilih nombor mula, kemudian klik nombor di kiri.");
+        gnState = { start: null, current: null, steps: 0 };
+        
+        content.innerHTML = `
+            <div class="w-full max-w-5xl text-center">
+                <h3 class="text-3xl font-bold text-green-600 mb-6">📏 Garis Nombor</h3>
+                
+                <div class="bg-white border-4 border-slate-200 rounded-3xl p-8 mb-8 overflow-x-auto">
+                    <div class="flex justify-between items-center min-w-[600px] relative pb-4">
+                        <div class="absolute bottom-6 left-0 right-0 h-2 bg-slate-300 rounded-full z-0"></div>
+                        ${Array.from({length:11}, (_,i) => `
+                            <div class="flex flex-col items-center z-10 relative" style="width: 9%">
+                                <button onclick="clickNumLine(${i}, this)" class="num-btn w-12 h-12 rounded-full bg-slate-100 border-2 border-slate-400 font-bold text-xl text-slate-600 hover:bg-green-100">${i}</button>
+                                <div class="h-4 w-1 bg-slate-400 mt-1"></div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div class="bg-green-50 p-4 rounded-2xl border-green-200 border text-green-800 font-bold text-xl flex items-center justify-center" id="gn-info">
+                        Pilih nombor mula.
+                    </div>
+                    <div class="bg-yellow-50 p-4 rounded-2xl border-yellow-200 border text-yellow-800 font-black text-3xl flex items-center justify-center" id="gn-eq">
+                        ---
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    window.clickNumLine = function(n, btn) {
+        const { start, current } = gnState;
+        
+        // Reset Visuals logic could be complex, simplified here:
+        if (start === null) {
+            gnState.start = n; gnState.current = n; gnState.steps = 0;
+            document.querySelectorAll('.num-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            document.getElementById('gn-info').innerText = `Mula di ${n}. Klik nombor di KIRI untuk tolak.`;
+            document.getElementById('gn-eq').innerText = `${n} − 0 = ${n}`;
+            speak(`Mula nombor ${n}.`);
+        } else if (n < current) {
+            const diff = current - n;
+            gnState.steps += diff;
+            gnState.current = n;
+            
+            document.querySelectorAll('.num-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            const res = gnState.start - gnState.steps;
+            document.getElementById('gn-info').innerText = `Gerak ${diff} langkah ke kiri.`;
+            document.getElementById('gn-eq').innerText = `${gnState.start} − ${gnState.steps} = ${res}`;
+            
+            const msg = `${gnState.start} tolak ${gnState.steps} sama dengan ${res}.`;
+            setInfo(msg); speak(msg);
+        } else {
+            setInfo("Sila klik nombor di sebelah KIRI (lebih kecil).");
+            speak("Gerak ke kiri.");
+        }
+    }
+
+    /* --- 3. Koleksi Fakta --- */
+    function setupAct3(content) {
+        setInfo("Klik kad untuk dengar ayat matematik.");
+        const facts = [{a:10,b:4}, {a:8,b:3}, {a:7,b:2}, {a:9,b:5}];
+        
+        content.innerHTML = `
+            <div class="w-full max-w-4xl text-center">
+                <h3 class="text-3xl font-bold text-purple-600 mb-6">📚 Koleksi Fakta</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    ${facts.map(f => `
+                        <button onclick="showFact(${f.a}, ${f.b})" class="btn-3d bg-purple-100 border-purple-300 p-6 rounded-2xl text-left group hover:bg-purple-200">
+                            <div class="text-3xl font-black text-purple-800 mb-2 group-hover:scale-105 transition-transform origin-left">${f.a} − ${f.b}</div>
+                            <div class="flex flex-wrap gap-1 opacity-60">
+                                ${Array(f.a).fill(0).map(()=>`<div class="w-3 h-3 rounded-full bg-purple-600"></div>`).join('')}
+                            </div>
+                        </button>
+                    `).join('')}
+                </div>
+                <div id="fact-res" class="p-6 bg-white border-2 border-purple-200 rounded-2xl text-slate-500 text-xl">
+                    Pilih kad di atas.
+                </div>
+            </div>
+        `;
+    }
+    window.showFact = function(a, b) {
+        const res = a - b;
+        document.getElementById('fact-res').innerHTML = `
+            <div class="text-4xl font-bold text-purple-800 mb-2">${a} − ${b} = ${res}</div>
+            <div>Ambil ${b} daripada ${a}, tinggal ${res}.</div>
+        `;
+        speak(`${a} tolak ${b} sama dengan ${res}.`);
+    }
+
+    /* --- 4. Langkah Tolak (Cars) --- */
+    let carState = { total: 10, gone: 0 };
+    function setupAct4(content) {
+        setInfo("Tekan 'Ambil 1' untuk gerakkan kereta.");
+        carState = { total: 10, gone: 0 };
+        
+        content.innerHTML = `
+            <div class="w-full max-w-4xl text-center">
+                <h3 class="text-3xl font-bold text-orange-600 mb-6">🎬 Langkah Tolak</h3>
+                
+                <div class="bg-orange-50 border-2 border-orange-200 rounded-3xl p-6 mb-6 min-h-[120px] flex flex-wrap justify-center gap-2" id="car-row">
+                    ${Array(10).fill(0).map(()=>`<div class="text-4xl animate-popIn">🚗</div>`).join('')}
+                </div>
+                
+                <div class="flex justify-center gap-4 mb-8">
+                    <button onclick="carAction('minus')" class="btn-3d bg-red-500 text-white px-6 py-3 rounded-xl font-bold text-lg">Ambil 1 ➖</button>
+                    <button onclick="carAction('add')" class="btn-3d bg-green-500 text-white px-6 py-3 rounded-xl font-bold text-lg">Tambah 1 ➕</button>
+                    <button onclick="setupAct4(document.getElementById('activity-content'))" class="btn-3d bg-slate-500 text-white px-6 py-3 rounded-xl font-bold text-lg">Reset 🔄</button>
+                </div>
+                
+                <div class="text-3xl font-black text-slate-700 bg-white p-4 rounded-xl border-2 border-slate-200 inline-block" id="car-eq">
+                    10 − 0 = 10
+                </div>
+            </div>
+        `;
+    }
+    window.carAction = function(type) {
+        const row = document.getElementById('car-row');
+        
+        if (type === 'minus' && carState.gone < carState.total) {
+            row.lastElementChild.remove();
+            carState.gone++;
+        } else if (type === 'add' && carState.gone > 0) {
+            const div = document.createElement('div');
+            div.className = 'text-4xl animate-popIn';
+            div.innerText = '🚗';
+            row.appendChild(div);
+            carState.gone--;
+        }
+        
+        const left = carState.total - carState.gone;
+        document.getElementById('car-eq').innerText = `10 − ${carState.gone} = ${left}`;
+        speak(`${left} tinggal.`);
+    }
+
+    /* --- 5. Warna Buah --- */
+    function setupAct5(content) {
+        setInfo("Klik buah untuk tandakan diambil.");
+        const total = 12;
+        content.innerHTML = `
+            <div class="w-full max-w-4xl text-center">
+                <h3 class="text-3xl font-bold text-pink-600 mb-6">🍎 Warna Buah</h3>
+                
+                <div class="grid grid-cols-4 md:grid-cols-6 gap-4 mb-8 justify-items-center">
+                    ${Array(total).fill(0).map((_,i) => `
+                        <button onclick="toggleFruit(this)" class="chip-btn w-20 h-20 rounded-2xl bg-pink-100 border-2 border-pink-300 text-5xl flex items-center justify-center">🍎</button>
+                    `).join('')}
+                </div>
+                
+                <div class="bg-white border-2 border-pink-200 rounded-2xl p-6 inline-block min-w-[300px]">
+                    <div id="fr-eq" class="text-4xl font-black text-pink-800 mb-2">12 − 0 = 12</div>
+                    <div id="fr-text" class="text-slate-600">Tiada buah diambil.</div>
+                </div>
+            </div>
+        `;
+    }
+    window.toggleFruit = function(btn) {
+        btn.classList.toggle('crossed');
+        // Note: The .crossed CSS handles the strikethrough look
+        
+        const crossed = document.querySelectorAll('.chip-btn.crossed').length;
+        const left = 12 - crossed;
+        
+        document.getElementById('fr-eq').innerText = `12 − ${crossed} = ${left}`;
+        document.getElementById('fr-text').innerText = `${crossed} diambil, tinggal ${left}.`;
+        
+        speak(`${left} tinggal.`);
+    }
+
   </script>
 </body>
 </html>
